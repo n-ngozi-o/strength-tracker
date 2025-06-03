@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Strength Tracker">
+    <title>Strength Training Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        
+        .ios-button {
+            -webkit-appearance: none;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .ios-button:active {
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+        
+        .scroll-container {
+            -webkit-overflow-scrolling: touch;
+            overflow-y: auto;
+        }
+        
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="app" class="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen scroll-container">
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold flex items-center gap-3">
+                            <span class="text-2xl">💪</span>
+                            Strength Training Tracker
+                        </h1>
+                        <p class="text-blue-100 mt-2">Track your PRs and get personalized workout recommendations</p>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span id="sync-icon">☁️</span>
+                        <span id="sync-text">Offline</span>
+                        <button onclick="loadFromGoogleSheets()" id="refresh-btn" class="ml-2 px-3 py-1 bg-white bg-opacity-20 rounded text-xs hover:bg-opacity-30" style="display: none;">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Google Sheets Setup Modal -->
+            <div id="setup-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                    <h2 class="text-xl font-bold mb-4">Connect to Google Sheets</h2>
+                    <p class="text-sm text-gray-600 mb-4">
+                        To sync your data across devices, paste your Google Apps Script Web App URL below:
+                    </p>
+                    <input type="text" id="web-app-url" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 border border-gray-300 rounded-md mb-4">
+                    <div class="flex gap-2">
+                        <button onclick="saveWebAppUrl()" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 ios-button">
+                            Connect
+                        </button>
+                        <button onclick="skipSetup()" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 ios-button">
+                            Skip
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex border-b">
+                <button onclick="showTab('prs')" id="prs-tab" class="flex-1 py-4 px-6 text-center font-medium transition-colors ios-button bg-blue-50 text-blue-600 border-b-2 border-blue-600">
+                    🏆 Personal Records
+                </button>
+                <button onclick="showTab('workouts')" id="workouts-tab" class="flex-1 py-4 px-6 text-center font-medium transition-colors ios-button text-gray-600 hover:text-blue-600">
+                    🎯 Solo Workouts
+                </button>
+                <button onclick="showSyncSetup()" class="py-4 px-6 text-center font-medium transition-colors ios-button text-gray-600 hover:text-blue-600">
+                    ☁️ Sync
+                </button>
+            </div>
+
+            <!-- Personal Records Tab -->
+            <div id="prs-content" class="p-6 space-y-6">
+                <!-- Add New PR -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h2 class="text-xl font-semibold mb-4">Add New Personal Record</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+                        <select id="new-category" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 ios-button">
+                            <option value="Push/Pull">Push/Pull</option>
+                            <option value="Glutes & Quads">Glutes & Quads</option>
+                            <option value="Glutes & Hamstrings">Glutes & Hamstrings</option>
+                            <option value="Glutes">Glutes</option>
+                        </select>
+                        <input type="text" id="new-name" placeholder="Exercise name" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="new-weight" placeholder="Weight" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="new-reps" placeholder="Reps" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="new-sets" placeholder="Sets" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <button onclick="addPR()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors ios-button">
+                            Add PR
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PR Tables -->
+                <div id="pr-tables"></div>
+            </div>
+
+            <!-- Solo Workouts Tab -->
+            <div id="workouts-content" class="p-6 space-y-6 hidden">
+                <!-- Workout Selector -->
+                <div class="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg">
+                    <h2 class="text-xl font-semibold mb-4">Generate Solo Workout</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                            <select id="workout-category" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 ios-button" onchange="generateWorkout()">
+                                <option value="Push/Pull">Push/Pull</option>
+                                <option value="Glutes & Quads">Glutes & Quads</option>
+                                <option value="Glutes & Hamstrings">Glutes & Hamstrings</option>
+                                <option value="Glutes">Glutes</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Strength Duration</label>
+                            <div class="flex gap-2">
+                                <button onclick="setDuration(15)" id="duration-15" class="flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-gray-100 text-gray-700">15m</button>
+                                <button onclick="setDuration(30)" id="duration-30" class="flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-blue-600 text-white">30m</button>
+                                <button onclick="setDuration(45)" id="duration-45" class="flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-gray-100 text-gray-700">45m</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Cardio Duration</label>
+                            <div class="flex gap-2">
+                                <button onclick="setCardio(5)" id="cardio-5" class="flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-green-600 text-white">5m</button>
+                                <button onclick="setCardio(10)" id="cardio-10" class="flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-gray-100 text-gray-700">10m</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Workout -->
+                <div id="workout-display" class="bg-white border rounded-lg p-6">
+                    <!-- Workout content will be generated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // App state
+        let currentTab = 'prs';
+        let selectedDuration = 30;
+        let selectedCardio = 5;
+        let webAppUrl = '';
+        let syncStatus = 'offline';
+
+        // Load data from localStorage or use defaults
+        let personalRecords = JSON.parse(localStorage.getItem('strengthTracker_PRs')) || {
+            'Push/Pull': [
+                { name: 'Bench Press', weight: '75', reps: '8', sets: '4', goal: 'One plate (135 lbs)' },
+                { name: 'Dumbbell Shoulder Press', weight: '20', reps: '10', sets: '4', goal: '' },
+                { name: 'Barbell Bent Over Row (Pronated)', weight: '75', reps: '10', sets: '3', goal: '' },
+                { name: 'Seated Row', weight: '70', reps: '8', sets: '3', goal: '' },
+                { name: 'Dumbbell Reverse Fly', weight: '20', reps: '10', sets: '3', goal: '' },
+                { name: 'Tricep Extension (Neutral Grip)', weight: '15', reps: '12', sets: '2', goal: '' },
+                { name: 'Reverse Grip Lat Pull-down', weight: '60', reps: '12', sets: '4', goal: '' },
+                { name: 'Low Bicep Curl With Rope', weight: '20', reps: '6', sets: '3', goal: '' }
+            ],
+            'Glutes & Quads': [
+                { name: 'Back Squats', weight: '125', reps: '8', sets: '4', goal: '' },
+                { name: 'Bulgarian Split Squat with Dumbbells', weight: '30', reps: '12', sets: '4', goal: '' },
+                { name: 'Leg Press', weight: '185', reps: '12', sets: '4', goal: '' },
+                { name: 'Dumbbell Step Up', weight: '20', reps: '12', sets: '4', goal: '' },
+                { name: 'Heel Elevated Squats', weight: '30', reps: '10', sets: '3', goal: '' },
+                { name: 'Leg Extension', weight: '30', reps: '12', sets: '2', goal: '' }
+            ],
+            'Glutes & Hamstrings': [
+                { name: 'Deadlift (Narrow Stance)', weight: '145', reps: '8', sets: '3', goal: '' },
+                { name: 'Sideways Band Walks', weight: 'Bodyweight', reps: '12', sets: '4', goal: '' },
+                { name: 'Hip Thrust', weight: '20', reps: '12', sets: '4', goal: '' },
+                { name: 'Dumbbell Romanian Deadlifts', weight: '20', reps: '12', sets: '4', goal: '' },
+                { name: 'Seated Leg Curl', weight: '30', reps: '12', sets: '4', goal: '' }
+            ],
+            'Glutes': [
+                { name: 'Single Hip Thrust', weight: '35', reps: '12', sets: '4', goal: '' },
+                { name: 'Sumo Squats', weight: '62', reps: '8', sets: '3', goal: '' },
+                { name: 'Banded Hip Abductors', weight: 'Band', reps: '12', sets: '4', goal: '' },
+                { name: 'Cable Kickbacks', weight: '10', reps: '15', sets: '4', goal: '' },
+                { name: 'Sumo Leg Press', weight: '130', reps: '12', sets: '4', goal: '' }
+            ]
+        };
+
+        // Workout plans data
+        const workoutPlans = {
+            'Push/Pull': {
+                15: [
+                    { name: 'Push-ups', sets: 3, reps: '8-12', description: 'Chest, shoulders, triceps' },
+                    { name: 'Pike Push-ups', sets: 2, reps: '5-8', description: 'Shoulders focus' },
+                    { name: 'Tricep Dips (chair)', sets: 2, reps: '8-12', description: 'Triceps isolation' },
+                    { name: 'Resistance Band Rows', sets: 3, reps: '12-15', description: 'Back and biceps' }
+                ],
+                30: [
+                    { name: 'Push-ups (3 variations)', sets: 4, reps: '8-12', description: 'Standard, incline, decline' },
+                    { name: 'Pike Push-ups', sets: 3, reps: '5-8', description: 'Shoulder strength' },
+                    { name: 'Tricep Dips', sets: 3, reps: '8-12', description: 'Chair or bench' },
+                    { name: 'Dumbbell Rows', sets: 3, reps: '8-12', description: 'Single arm or bent over' },
+                    { name: 'Dumbbell Shoulder Press', sets: 3, reps: '8-12', description: 'Seated or standing' },
+                    { name: 'Plank Hold', sets: 3, reps: '30-60 sec', description: 'Core stability' }
+                ],
+                45: [
+                    { name: 'Push-up Progression', sets: 5, reps: '8-12', description: '3-4 variations' },
+                    { name: 'Pike Push-ups', sets: 4, reps: '5-8', description: 'Progress to handstand push-ups' },
+                    { name: 'Tricep Dips', sets: 4, reps: '8-15', description: 'Add weight if needed' },
+                    { name: 'Dumbbell Rows', sets: 4, reps: '8-12', description: 'Various grips' },
+                    { name: 'Dumbbell Shoulder Press', sets: 4, reps: '8-12', description: 'Overhead pressing' },
+                    { name: 'Dumbbell Reverse Fly', sets: 3, reps: '12-15', description: 'Rear delt focus' },
+                    { name: 'Tricep Extensions', sets: 3, reps: '10-15', description: 'Overhead or lying' },
+                    { name: 'Bicep Curls', sets: 3, reps: '10-15', description: 'Various grips' }
+                ]
+            },
+            'Glutes & Quads': {
+                15: [
+                    { name: 'Bodyweight Squats', sets: 3, reps: '12-15', description: 'Focus on form' },
+                    { name: 'Reverse Lunges', sets: 3, reps: '10 each leg', description: 'Controlled movement' },
+                    { name: 'Wall Sits', sets: 2, reps: '30-45 sec', description: 'Quad endurance' },
+                    { name: 'Glute Bridges', sets: 3, reps: '15-20', description: 'Glute activation' }
+                ],
+                30: [
+                    { name: 'Goblet Squats', sets: 4, reps: '12-15', description: 'Use dumbbell or weight' },
+                    { name: 'Bulgarian Split Squats', sets: 3, reps: '10-12 each leg', description: 'Add dumbbells for resistance' },
+                    { name: 'Reverse Lunges', sets: 3, reps: '12 each leg', description: 'Add weight if available' },
+                    { name: 'Step-ups', sets: 3, reps: '10 each leg', description: 'Use stairs/sturdy surface with dumbbells' },
+                    { name: 'Wall Sits', sets: 3, reps: '45-60 sec', description: 'Build endurance' },
+                    { name: 'Single-leg Glute Bridges', sets: 3, reps: '10 each leg', description: 'Unilateral strength' }
+                ],
+                45: [
+                    { name: 'Goblet Squats', sets: 5, reps: '12-15', description: 'Progress weight over sets' },
+                    { name: 'Bulgarian Split Squats', sets: 4, reps: '10-12 each leg', description: 'Hold dumbbells' },
+                    { name: 'Reverse Lunges', sets: 4, reps: '10-12 each leg', description: 'Add weight for challenge' },
+                    { name: 'Step-ups with Knee Drive', sets: 3, reps: '12 each leg', description: 'Explosive movement with dumbbells' },
+                    { name: 'Single-leg Squats (assisted)', sets: 3, reps: '5-8 each leg', description: 'Use chair for support' },
+                    { name: 'Wall Sits', sets: 3, reps: '60-90 sec', description: 'Advanced holds' },
+                    { name: 'Heel Elevated Squats', sets: 3, reps: '12-15', description: 'Use plates under heels' },
+                    { name: 'Squat Pulses', sets: 3, reps: '20-30', description: 'Finisher with light weight' }
+                ]
+            },
+            'Glutes & Hamstrings': {
+                15: [
+                    { name: 'Glute Bridges', sets: 3, reps: '15-20', description: 'Hip extension focus' },
+                    { name: 'Romanian Deadlifts', sets: 3, reps: '10-12', description: 'Use dumbbells' },
+                    { name: 'Single-leg RDL', sets: 2, reps: '8 each leg', description: 'Balance challenge with light weight' },
+                    { name: 'Clamshells', sets: 2, reps: '15 each side', description: 'Glute med activation' }
+                ],
+                30: [
+                    { name: 'Hip Thrust', sets: 4, reps: '15-20', description: 'Use couch/bed, add weight on hips' },
+                    { name: 'Romanian Deadlifts', sets: 3, reps: '12-15', description: 'Use dumbbells, focus on form' },
+                    { name: 'Single-leg RDL', sets: 3, reps: '8-10 each leg', description: 'Light dumbbell for balance' },
+                    { name: 'Lateral Band Walks', sets: 3, reps: '12 each direction', description: 'Use resistance band' },
+                    { name: 'Good Mornings', sets: 3, reps: '12-15', description: 'Bodyweight or light weight' },
+                    { name: 'Reverse Hypers (on bed)', sets: 3, reps: '12-15', description: 'Glute/hamstring strength' }
+                ],
+                45: [
+                    { name: 'Hip Thrust', sets: 5, reps: '15-20', description: 'Progress weight, try single leg' },
+                    { name: 'Romanian Deadlifts', sets: 4, reps: '12-15', description: 'Use heavier dumbbells' },
+                    { name: 'Single-leg RDL', sets: 4, reps: '8-10 each leg', description: 'Progress to heavier weight' },
+                    { name: 'Good Morning Variations', sets: 3, reps: '12-15', description: 'Regular, single leg' },
+                    { name: 'Lateral Band Circuit', sets: 3, reps: '12 each', description: 'Walks, clamshells, kickbacks' },
+                    { name: 'Curtsy Lunges', sets: 3, reps: '10 each leg', description: 'Add dumbbells for resistance' },
+                    { name: 'Single-leg Hip Thrust', sets: 3, reps: '8-12 each leg', description: 'Advanced variation' },
+                    { name: 'Hamstring Curls (towel)', sets: 3, reps: '12-15', description: 'Lying on smooth floor' }
+                ]
+            },
+            'Glutes': {
+                15: [
+                    { name: 'Glute Bridges', sets: 3, reps: '20-25', description: 'Maximum glute squeeze' },
+                    { name: 'Clamshells', sets: 3, reps: '15 each side', description: 'Glute med activation' },
+                    { name: 'Fire Hydrants', sets: 2, reps: '12 each leg', description: 'Hip abduction' },
+                    { name: 'Glute Squeeze Pulses', sets: 2, reps: '20', description: 'Isometric holds' }
+                ],
+                30: [
+                    { name: 'Hip Thrust', sets: 4, reps: '15-20', description: 'Add weight, try single leg variations' },
+                    { name: 'Sumo Squats', sets: 3, reps: '12-15', description: 'Wide stance, add dumbbell' },
+                    { name: 'Lateral Band Walks', sets: 3, reps: '15 each direction', description: 'Constant tension' },
+                    { name: 'Curtsy Lunges', sets: 3, reps: '12 each leg', description: 'Add dumbbells for resistance' },
+                    { name: 'Clamshells', sets: 3, reps: '20 each side', description: 'Side-lying glute med' },
+                    { name: 'Donkey Kicks', sets: 3, reps: '15 each leg', description: 'Glute isolation' }
+                ],
+                45: [
+                    { name: 'Hip Thrust', sets: 5, reps: '15-20', description: 'Progress weight, single leg variations' },
+                    { name: 'Sumo Squats', sets: 4, reps: '12-15', description: 'Heavy dumbbell, pulse variations' },
+                    { name: 'Single Hip Thrust', sets: 4, reps: '12-15 each leg', description: 'Use dumbbells for added resistance' },
+                    { name: 'Lateral Movement Circuit', sets: 4, reps: '12-15', description: 'Band walks, lateral lunges' },
+                    { name: 'Curtsy Lunge to Lateral Lunge', sets: 3, reps: '10 each leg', description: 'Multi-planar with dumbbells' },
+                    { name: 'Clamshell Variations', sets: 3, reps: '15 each', description: 'Regular, top leg lifts' },
+                    { name: 'Cable Kickbacks', sets: 3, reps: '12-15 each leg', description: 'Use resistance band' },
+                    { name: 'Glute Activation Finisher', sets: 3, reps: '20-30', description: 'Fire hydrants, donkey kicks' }
+                ]
+            }
+        };
+
+        const cardioOptions = {
+            5: [
+                { name: 'Treadmill Walk', description: 'Brisk walk at 3.5-4.0 mph, slight incline' },
+                { name: 'Elliptical Steady', description: 'Moderate pace, consistent resistance' },
+                { name: 'HIIT Bodyweight', description: '30 sec work, 30 sec rest: jumping jacks, high knees, butt kicks' }
+            ],
+            10: [
+                { name: 'Treadmill Intervals', description: '2 min walk, 1 min jog, repeat 3x + cool down' },
+                { name: 'Elliptical Hills', description: 'Varying resistance every 2 minutes' },
+                { name: 'HIIT Circuit', description: '45 sec work, 15 sec rest: burpees, mountain climbers, jump squats, high knees' },
+                { name: 'Treadmill Incline Walk', description: '10-15% incline, 3.0-3.5 mph steady pace' }
+            ]
+        };
+
+        // Initialize app
+        function init() {
+            // Load saved Web App URL
+            const savedUrl = localStorage.getItem('strengthTracker_WebAppUrl');
+            if (savedUrl) {
+                webAppUrl = savedUrl;
+                document.getElementById('web-app-url').value = savedUrl;
+                document.getElementById('setup-modal').style.display = 'none';
+                document.getElementById('refresh-btn').style.display = 'inline-block';
+            }
+            
+            renderPRTables();
+            generateWorkout();
+        }
+
+        function showSyncSetup() {
+            document.getElementById('setup-modal').style.display = 'flex';
+            document.getElementById('web-app-url').value = webAppUrl;
+        }
+
+        function skipSetup() {
+            document.getElementById('setup-modal').style.display = 'none';
+        }
+
+        function saveWebAppUrl() {
+            const url = document.getElementById('web-app-url').value;
+            if (url) {
+                webAppUrl = url;
+                localStorage.setItem('strengthTracker_WebAppUrl', webAppUrl);
+                document.getElementById('setup-modal').style.display = 'none';
+                document.getElementById('refresh-btn').style.display = 'inline-block';
+                console.log('Web App URL saved:', webAppUrl);
+                syncToGoogleSheets();
+            }
+        }
+
+        function updateSyncStatus(status) {
+            syncStatus = status;
+            const icon = document.getElementById('sync-icon');
+            const text = document.getElementById('sync-text');
+            
+            switch (status) {
+                case 'syncing':
+                    icon.textContent = '🔄';
+                    text.textContent = 'Syncing...';
+                    break;
+                case 'synced':
+                    icon.textContent = '✅';
+                    text.textContent = 'Synced';
+                    setTimeout(() => updateSyncStatus('offline'), 2000);
+                    break;
+                case 'error':
+                    icon.textContent = '❌';
+                    text.textContent = 'Sync Error';
+                    setTimeout(() => updateSyncStatus('offline'), 3000);
+                    break;
+                default:
+                    icon.textContent = '☁️';
+                    text.textContent = 'Offline';
+            }
+        }
+
+        async function syncToGoogleSheets() {
+            if (!webAppUrl) {
+                console.log('No Web App URL configured');
+                return;
+            }
+            
+            console.log('Starting sync to Google Sheets...');
+            updateSyncStatus('syncing');
+            
+            try {
+                const response = await fetch(webAppUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors',
+                    body: JSON.stringify(personalRecords)
+                });
+                
+                console.log('Sync response:', response.status, response.statusText);
+                
+                if (response.ok) {
+                    const responseText = await response.text();
+                    console.log('Sync successful:', responseText);
+                    updateSyncStatus('synced');
+                } else {
+                    console.error('Sync failed with status:', response.status);
+                    updateSyncStatus('error');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                updateSyncStatus('error');
+            }
+        }
+
+        async function loadFromGoogleSheets() {
+            if (!webAppUrl) return;
+            
+            console.log('Loading data from Google Sheets...');
+            updateSyncStatus('syncing');
+            
+            try {
+                const response = await fetch(webAppUrl);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (Object.keys(data).length > 0) {
+                        personalRecords = data;
+                        localStorage.setItem('strengthTracker_PRs', JSON.stringify(personalRecords));
+                        renderPRTables();
+                        console.log('Data loaded successfully:', data);
+                        updateSyncStatus('synced');
+                    } else {
+                        updateSyncStatus('synced');
+                    }
+                } else {
+                    console.error('Load failed with status:', response.status);
+                    updateSyncStatus('error');
+                }
+            } catch (error) {
+                console.error('Load error:', error);
+                updateSyncStatus('error');
+            }
+        }
+
+        function showTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.getElementById('prs-tab').className = tab === 'prs' 
+                ? 'flex-1 py-4 px-6 text-center font-medium transition-colors ios-button bg-blue-50 text-blue-600 border-b-2 border-blue-600'
+                : 'flex-1 py-4 px-6 text-center font-medium transition-colors ios-button text-gray-600 hover:text-blue-600';
+            
+            document.getElementById('workouts-tab').className = tab === 'workouts'
+                ? 'flex-1 py-4 px-6 text-center font-medium transition-colors ios-button bg-blue-50 text-blue-600 border-b-2 border-blue-600'
+                : 'flex-1 py-4 px-6 text-center font-medium transition-colors ios-button text-gray-600 hover:text-blue-600';
+            
+            // Show/hide content
+            document.getElementById('prs-content').className = tab === 'prs' ? 'p-6 space-y-6' : 'p-6 space-y-6 hidden';
+            document.getElementById('workouts-content').className = tab === 'workouts' ? 'p-6 space-y-6' : 'p-6 space-y-6 hidden';
+            
+            if (tab === 'prs') {
+                renderPRTables();
+            } else if (tab === 'workouts') {
+                generateWorkout();
+            }
+        }
+
+        function renderPRTables() {
+            const container = document.getElementById('pr-tables');
+            container.innerHTML = '';
+            
+            Object.keys(personalRecords).forEach(category => {
+                const tableDiv = document.createElement('div');
+                tableDiv.className = 'bg-white border rounded-lg p-4';
+                
+                tableDiv.innerHTML = `
+                    <h3 class="text-lg font-semibold mb-4 text-blue-600">${category}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="text-left p-2">Exercise</th>
+                                    <th class="text-left p-2">Weight</th>
+                                    <th class="text-left p-2">Reps</th>
+                                    <th class="text-left p-2">Sets</th>
+                                    <th class="text-left p-2">Goal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${personalRecords[category].map((pr, index) => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-2 font-medium">${pr.name}</td>
+                                        <td class="p-2">
+                                            <input type="text" value="${pr.weight}" 
+                                                   onchange="updatePR('${category}', ${index}, 'weight', this.value)"
+                                                   class="w-20 p-1 border border-gray-300 rounded text-center">
+                                        </td>
+                                        <td class="p-2">
+                                            <input type="text" value="${pr.reps}" 
+                                                   onchange="updatePR('${category}', ${index}, 'reps', this.value)"
+                                                   class="w-16 p-1 border border-gray-300 rounded text-center">
+                                        </td>
+                                        <td class="p-2">
+                                            <input type="text" value="${pr.sets}" 
+                                                   onchange="updatePR('${category}', ${index}, 'sets', this.value)"
+                                                   class="w-16 p-1 border border-gray-300 rounded text-center">
+                                        </td>
+                                        <td class="p-2">
+                                            <input type="text" value="${pr.goal}" 
+                                                   onchange="updatePR('${category}', ${index}, 'goal', this.value)"
+                                                   placeholder="Set a goal..."
+                                                   class="w-32 p-1 border border-gray-300 rounded">
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                container.appendChild(tableDiv);
+            });
+        }
+
+        function updatePR(category, index, field, value) {
+            personalRecords[category][index][field] = value;
+            localStorage.setItem('strengthTracker_PRs', JSON.stringify(personalRecords));
+            
+            // Sync to Google Sheets after update
+            if (webAppUrl) {
+                console.log('PR updated, syncing...');
+                setTimeout(() => syncToGoogleSheets(), 1000);
+            }
+        }
+
+        function addPR() {
+            const category = document.getElementById('new-category').value;
+            const name = document.getElementById('new-name').value;
+            const weight = document.getElementById('new-weight').value;
+            const reps = document.getElementById('new-reps').value;
+            const sets = document.getElementById('new-sets').value;
+            
+            if (name && weight && reps) {
+                personalRecords[category].push({
+                    name: name,
+                    weight: weight,
+                    reps: reps,
+                    sets: sets,
+                    goal: ''
+                });
+                
+                localStorage.setItem('strengthTracker_PRs', JSON.stringify(personalRecords));
+                
+                // Clear form
+                document.getElementById('new-name').value = '';
+                document.getElementById('new-weight').value = '';
+                document.getElementById('new-reps').value = '';
+                document.getElementById('new-sets').value = '';
+                
+                renderPRTables();
+                
+                // Sync to Google Sheets
+                if (webAppUrl) {
+                    console.log('New PR added, syncing...');
+                    setTimeout(() => syncToGoogleSheets(), 1000);
+                }
+            }
+        }
+
+        function setDuration(duration) {
+            selectedDuration = duration;
+            
+            // Update button styles
+            [15, 30, 45].forEach(d => {
+                const btn = document.getElementById(`duration-${d}`);
+                btn.className = d === duration 
+                    ? 'flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-blue-600 text-white'
+                    : 'flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-gray-100 text-gray-700';
+            });
+            
+            generateWorkout();
+        }
+
+        function setCardio(cardio) {
+            selectedCardio = cardio;
+            
+            // Update button styles
+            [5, 10].forEach(c => {
+                const btn = document.getElementById(`cardio-${c}`);
+                btn.className = c === cardio 
+                    ? 'flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-green-600 text-white'
+                    : 'flex-1 p-3 rounded-md font-medium transition-colors ios-button bg-gray-100 text-gray-700';
+            });
+            
+            generateWorkout();
+        }
+
+        function getWeightRecommendation(exerciseName, category) {
+            const categoryPRs = personalRecords[category];
+            
+            let matchedPR = categoryPRs.find(pr => pr.name.toLowerCase() === exerciseName.toLowerCase());
+            
+            if (!matchedPR) {
+                if (exerciseName.toLowerCase().includes('squat')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('squat'));
+                } else if (exerciseName.toLowerCase().includes('lunge')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('lunge') || pr.name.toLowerCase().includes('split'));
+                } else if (exerciseName.toLowerCase().includes('hip thrust') || exerciseName.toLowerCase().includes('bridge')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('hip thrust') || pr.name.toLowerCase().includes('bridge'));
+                } else if (exerciseName.toLowerCase().includes('deadlift') || exerciseName.toLowerCase().includes('rdl')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('deadlift'));
+                } else if (exerciseName.toLowerCase().includes('shoulder press')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('shoulder press'));
+                } else if (exerciseName.toLowerCase().includes('row')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('row'));
+                } else if (exerciseName.toLowerCase().includes('fly')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('fly'));
+                } else if (exerciseName.toLowerCase().includes('curl')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('curl'));
+                } else if (exerciseName.toLowerCase().includes('extension')) {
+                    matchedPR = categoryPRs.find(pr => pr.name.toLowerCase().includes('extension'));
+                }
+            }
+            
+            if (matchedPR && matchedPR.weight && !isNaN(parseInt(matchedPR.weight))) {
+                const prWeight = parseInt(matchedPR.weight);
+                const recommendedWeight = Math.round(prWeight * 0.7);
+                return `Start with ${recommendedWeight} lbs (70% of your ${matchedPR.name} PR)`;
+            }
+            
+            return 'Start with bodyweight, add weight as needed';
+        }
+
+        function generateWorkout() {
+            const category = document.getElementById('workout-category').value;
+            const exercises = workoutPlans[category][selectedDuration];
+            const cardio = cardioOptions[selectedCardio];
+            
+            const workoutDisplay = document.getElementById('workout-display');
+            
+            let exerciseHTML = exercises.map((exercise, index) => `
+                <div class="flex items-start gap-4 p-4 bg-blue-50 rounded-lg">
+                    <div class="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                        ${index + 1}
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="font-semibold text-gray-800">${exercise.name}</h5>
+                        <p class="text-sm text-gray-600 mb-1">${exercise.description}</p>
+                        <div class="text-sm font-medium text-blue-600 mb-1">
+                            ${exercise.sets} sets × ${exercise.reps}
+                        </div>
+                        <div class="text-xs text-purple-600 font-medium bg-purple-50 px-2 py-1 rounded">
+                            💪 ${getWeightRecommendation(exercise.name, category)}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            let cardioHTML = cardio.map((cardioEx, index) => `
+                <div class="flex items-start gap-4 p-4 bg-green-50 rounded-lg">
+                    <div class="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                        C${index + 1}
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="font-semibold text-gray-800">${cardioEx.name}</h5>
+                        <p class="text-sm text-gray-600">${cardioEx.description}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            workoutDisplay.innerHTML = `
+                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    🎯 ${category} - ${selectedDuration + selectedCardio} Minute Complete Workout
+                </h3>
+                
+                <!-- Strength Portion -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium mb-3 text-blue-600">
+                        Strength Training (${selectedDuration} minutes)
+                    </h4>
+                    <div class="space-y-4">
+                        ${exerciseHTML}
+                    </div>
+                </div>
+
+                <!-- Cardio Portion -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium mb-3 text-green-600">
+                        Cardio (${selectedCardio} minutes)
+                    </h4>
+                    <div class="space-y-3">
+                        ${cardioHTML}
+                    </div>
+                    <div class="mt-3 p-3 bg-green-100 rounded-lg">
+                        <p class="text-sm text-green-700">
+                            <strong>Choose one cardio option</strong> that fits your equipment and preference for today's workout.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 class="font-medium text-yellow-800 mb-2">💡 Complete Workout Tips</h4>
+                    <ul class="text-sm text-yellow-700 space-y-1">
+                        <li>• <strong>Warm-up:</strong> 2-3 minutes light movement before strength training</li>
+                        <li>• <strong>Strength:</strong> Rest 30-60 seconds between sets, focus on form</li>
+                        <li>• <strong>Cardio timing:</strong> Can be done before, after, or split around strength training</li>
+                        <li>• <strong>Cool-down:</strong> 2-3 minutes stretching after cardio</li>
+                        <li>• <strong>Total time:</strong> ${selectedDuration + selectedCardio + 5} minutes including warm-up/cool-down</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+        });
+    </script>
+</body>
+</html>
