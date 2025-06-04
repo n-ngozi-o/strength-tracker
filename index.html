@@ -156,6 +156,12 @@
                             </div>
                         </div>
                     </div>
+                    <!-- NEW: Generate New Workout Button -->
+                    <div class="mt-4 text-center">
+                        <button onclick="generateNewWorkout()" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 transition-colors ios-button">
+                            🔄 Generate New Workout
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Generated Workout -->
@@ -173,6 +179,7 @@
         let selectedCardio = 5;
         let webAppUrl = '';
         let syncStatus = 'offline';
+        let currentWorkoutVariation = 0; // NEW: Track workout variations
 
         // Load data from localStorage or use defaults
         let personalRecords = JSON.parse(localStorage.getItem('strengthTracker_PRs')) || {
@@ -210,110 +217,230 @@
             ]
         };
 
-        // Workout plans data
+        // UPDATED: Multiple workout plan variations
         const workoutPlans = {
             'Push/Pull': {
                 15: [
-                    { name: 'Push-ups', sets: 3, reps: '8-12', description: 'Chest, shoulders, triceps' },
-                    { name: 'Pike Push-ups', sets: 2, reps: '5-8', description: 'Shoulders focus' },
-                    { name: 'Tricep Dips (chair)', sets: 2, reps: '8-12', description: 'Triceps isolation' },
-                    { name: 'Resistance Band Rows', sets: 3, reps: '12-15', description: 'Back and biceps' }
+                    [
+                        { name: 'Push-ups', sets: 3, reps: '8-12', description: 'Chest, shoulders, triceps' },
+                        { name: 'Pike Push-ups', sets: 2, reps: '5-8', description: 'Shoulders focus' },
+                        { name: 'Tricep Dips (chair)', sets: 2, reps: '8-12', description: 'Triceps isolation' },
+                        { name: 'Resistance Band Rows', sets: 3, reps: '12-15', description: 'Back and biceps' }
+                    ],
+                    [
+                        { name: 'Incline Push-ups', sets: 3, reps: '10-15', description: 'Easier chest variation' },
+                        { name: 'Wall Push-ups', sets: 2, reps: '12-15', description: 'Beginner friendly' },
+                        { name: 'Arm Circles', sets: 2, reps: '15 each direction', description: 'Shoulder mobility' },
+                        { name: 'Superman Pulls', sets: 3, reps: '10-12', description: 'Back strengthening' }
+                    ]
                 ],
                 30: [
-                    { name: 'Push-ups (3 variations)', sets: 4, reps: '8-12', description: 'Standard, incline, decline' },
-                    { name: 'Pike Push-ups', sets: 3, reps: '5-8', description: 'Shoulder strength' },
-                    { name: 'Tricep Dips', sets: 3, reps: '8-12', description: 'Chair or bench' },
-                    { name: 'Dumbbell Rows', sets: 3, reps: '8-12', description: 'Single arm or bent over' },
-                    { name: 'Dumbbell Shoulder Press', sets: 3, reps: '8-12', description: 'Seated or standing' },
-                    { name: 'Plank Hold', sets: 3, reps: '30-60 sec', description: 'Core stability' }
+                    [
+                        { name: 'Push-ups (3 variations)', sets: 4, reps: '8-12', description: 'Standard, incline, decline' },
+                        { name: 'Pike Push-ups', sets: 3, reps: '5-8', description: 'Shoulder strength' },
+                        { name: 'Tricep Dips', sets: 3, reps: '8-12', description: 'Chair or bench' },
+                        { name: 'Dumbbell Rows', sets: 3, reps: '8-12', description: 'Single arm or bent over' },
+                        { name: 'Dumbbell Shoulder Press', sets: 3, reps: '8-12', description: 'Seated or standing' },
+                        { name: 'Plank Hold', sets: 3, reps: '30-60 sec', description: 'Core stability' }
+                    ],
+                    [
+                        { name: 'Diamond Push-ups', sets: 3, reps: '5-10', description: 'Tricep emphasis' },
+                        { name: 'Handstand Wall Hold', sets: 3, reps: '15-30 sec', description: 'Shoulder stability' },
+                        { name: 'Chair Dips', sets: 4, reps: '8-12', description: 'Tricep strength' },
+                        { name: 'Bent-over Reverse Fly', sets: 3, reps: '12-15', description: 'Rear delts' },
+                        { name: 'Overhead Press', sets: 3, reps: '8-12', description: 'Standing shoulder press' },
+                        { name: 'Side Plank', sets: 2, reps: '20-40 sec each', description: 'Lateral core' }
+                    ]
                 ],
                 45: [
-                    { name: 'Push-up Progression', sets: 5, reps: '8-12', description: '3-4 variations' },
-                    { name: 'Pike Push-ups', sets: 4, reps: '5-8', description: 'Progress to handstand push-ups' },
-                    { name: 'Tricep Dips', sets: 4, reps: '8-15', description: 'Add weight if needed' },
-                    { name: 'Dumbbell Rows', sets: 4, reps: '8-12', description: 'Various grips' },
-                    { name: 'Dumbbell Shoulder Press', sets: 4, reps: '8-12', description: 'Overhead pressing' },
-                    { name: 'Dumbbell Reverse Fly', sets: 3, reps: '12-15', description: 'Rear delt focus' },
-                    { name: 'Tricep Extensions', sets: 3, reps: '10-15', description: 'Overhead or lying' },
-                    { name: 'Bicep Curls', sets: 3, reps: '10-15', description: 'Various grips' }
+                    [
+                        { name: 'Push-up Progression', sets: 5, reps: '8-12', description: '3-4 variations' },
+                        { name: 'Pike Push-ups', sets: 4, reps: '5-8', description: 'Progress to handstand push-ups' },
+                        { name: 'Tricep Dips', sets: 4, reps: '8-15', description: 'Add weight if needed' },
+                        { name: 'Dumbbell Rows', sets: 4, reps: '8-12', description: 'Various grips' },
+                        { name: 'Dumbbell Shoulder Press', sets: 4, reps: '8-12', description: 'Overhead pressing' },
+                        { name: 'Dumbbell Reverse Fly', sets: 3, reps: '12-15', description: 'Rear delt focus' },
+                        { name: 'Tricep Extensions', sets: 3, reps: '10-15', description: 'Overhead or lying' },
+                        { name: 'Bicep Curls', sets: 3, reps: '10-15', description: 'Various grips' }
+                    ],
+                    [
+                        { name: 'Archer Push-ups', sets: 4, reps: '3-6 each side', description: 'Single arm progression' },
+                        { name: 'Handstand Push-up Negatives', sets: 3, reps: '3-5', description: 'Advanced shoulder work' },
+                        { name: 'Ring/TRX Dips', sets: 4, reps: '6-10', description: 'Unstable surface' },
+                        { name: 'Single-arm Row', sets: 4, reps: '6-10 each', description: 'Unilateral back work' },
+                        { name: 'Arnold Press', sets: 3, reps: '8-12', description: 'Shoulder mobility + strength' },
+                        { name: 'Face Pulls', sets: 3, reps: '15-20', description: 'Rear delt/rhomboids' },
+                        { name: 'Overhead Tricep Extension', sets: 3, reps: '10-15', description: 'Long head focus' },
+                        { name: 'Hammer Curls', sets: 3, reps: '10-15', description: 'Bicep/forearm' }
+                    ]
                 ]
             },
             'Glutes & Quads': {
                 15: [
-                    { name: 'Bodyweight Squats', sets: 3, reps: '12-15', description: 'Focus on form' },
-                    { name: 'Reverse Lunges', sets: 3, reps: '10 each leg', description: 'Controlled movement' },
-                    { name: 'Wall Sits', sets: 2, reps: '30-45 sec', description: 'Quad endurance' },
-                    { name: 'Glute Bridges', sets: 3, reps: '15-20', description: 'Glute activation' }
+                    [
+                        { name: 'Bodyweight Squats', sets: 3, reps: '12-15', description: 'Focus on form' },
+                        { name: 'Reverse Lunges', sets: 3, reps: '10 each leg', description: 'Controlled movement' },
+                        { name: 'Wall Sits', sets: 2, reps: '30-45 sec', description: 'Quad endurance' },
+                        { name: 'Glute Bridges', sets: 3, reps: '15-20', description: 'Glute activation' }
+                    ],
+                    [
+                        { name: 'Jump Squats', sets: 3, reps: '8-12', description: 'Explosive power' },
+                        { name: 'Forward Lunges', sets: 3, reps: '10 each leg', description: 'Dynamic movement' },
+                        { name: 'Single-leg Glute Bridge', sets: 2, reps: '8-12 each', description: 'Unilateral strength' },
+                        { name: 'Calf Raises', sets: 3, reps: '15-20', description: 'Lower leg strength' }
+                    ]
                 ],
                 30: [
-                    { name: 'Goblet Squats', sets: 4, reps: '12-15', description: 'Use dumbbell or weight' },
-                    { name: 'Bulgarian Split Squats', sets: 3, reps: '10-12 each leg', description: 'Add dumbbells for resistance' },
-                    { name: 'Reverse Lunges', sets: 3, reps: '12 each leg', description: 'Add weight if available' },
-                    { name: 'Step-ups', sets: 3, reps: '10 each leg', description: 'Use stairs/sturdy surface with dumbbells' },
-                    { name: 'Wall Sits', sets: 3, reps: '45-60 sec', description: 'Build endurance' },
-                    { name: 'Single-leg Glute Bridges', sets: 3, reps: '10 each leg', description: 'Unilateral strength' }
+                    [
+                        { name: 'Goblet Squats', sets: 4, reps: '12-15', description: 'Use dumbbell or weight' },
+                        { name: 'Bulgarian Split Squats', sets: 3, reps: '10-12 each leg', description: 'Add dumbbells for resistance' },
+                        { name: 'Reverse Lunges', sets: 3, reps: '12 each leg', description: 'Add weight if available' },
+                        { name: 'Step-ups', sets: 3, reps: '10 each leg', description: 'Use stairs/sturdy surface with dumbbells' },
+                        { name: 'Wall Sits', sets: 3, reps: '45-60 sec', description: 'Build endurance' },
+                        { name: 'Single-leg Glute Bridges', sets: 3, reps: '10 each leg', description: 'Unilateral strength' }
+                    ],
+                    [
+                        { name: 'Sumo Squats', sets: 4, reps: '12-15', description: 'Wide stance variation' },
+                        { name: 'Lateral Lunges', sets: 3, reps: '10-12 each leg', description: 'Side-to-side movement' },
+                        { name: 'Curtsy Lunges', sets: 3, reps: '12 each leg', description: 'Multi-planar movement' },
+                        { name: 'Box Step-ups', sets: 3, reps: '10 each leg', description: 'Higher platform' },
+                        { name: 'Squat Pulses', sets: 3, reps: '20-30', description: 'Isometric holds' },
+                        { name: 'Glute Bridge Marches', sets: 3, reps: '10 each leg', description: 'Core + glutes' }
+                    ]
                 ],
                 45: [
-                    { name: 'Goblet Squats', sets: 5, reps: '12-15', description: 'Progress weight over sets' },
-                    { name: 'Bulgarian Split Squats', sets: 4, reps: '10-12 each leg', description: 'Hold dumbbells' },
-                    { name: 'Reverse Lunges', sets: 4, reps: '10-12 each leg', description: 'Add weight for challenge' },
-                    { name: 'Step-ups with Knee Drive', sets: 3, reps: '12 each leg', description: 'Explosive movement with dumbbells' },
-                    { name: 'Single-leg Squats (assisted)', sets: 3, reps: '5-8 each leg', description: 'Use chair for support' },
-                    { name: 'Wall Sits', sets: 3, reps: '60-90 sec', description: 'Advanced holds' },
-                    { name: 'Heel Elevated Squats', sets: 3, reps: '12-15', description: 'Use plates under heels' },
-                    { name: 'Squat Pulses', sets: 3, reps: '20-30', description: 'Finisher with light weight' }
+                    [
+                        { name: 'Goblet Squats', sets: 5, reps: '12-15', description: 'Progress weight over sets' },
+                        { name: 'Bulgarian Split Squats', sets: 4, reps: '10-12 each leg', description: 'Hold dumbbells' },
+                        { name: 'Reverse Lunges', sets: 4, reps: '10-12 each leg', description: 'Add weight for challenge' },
+                        { name: 'Step-ups with Knee Drive', sets: 3, reps: '12 each leg', description: 'Explosive movement with dumbbells' },
+                        { name: 'Single-leg Squats (assisted)', sets: 3, reps: '5-8 each leg', description: 'Use chair for support' },
+                        { name: 'Wall Sits', sets: 3, reps: '60-90 sec', description: 'Advanced holds' },
+                        { name: 'Heel Elevated Squats', sets: 3, reps: '12-15', description: 'Use plates under heels' },
+                        { name: 'Squat Pulses', sets: 3, reps: '20-30', description: 'Finisher with light weight' }
+                    ],
+                    [
+                        { name: 'Pistol Squat Progression', sets: 4, reps: '3-8 each leg', description: 'Single leg strength' },
+                        { name: 'Jump Lunges', sets: 4, reps: '8-12 each leg', description: 'Plyometric power' },
+                        { name: 'Lunge Matrix', sets: 3, reps: '6 each direction', description: 'Multi-directional' },
+                        { name: 'Elevated Step-ups', sets: 3, reps: '10-12 each leg', description: 'Higher challenge' },
+                        { name: 'Shrimp Squat Progression', sets: 3, reps: '3-5 each leg', description: 'Advanced single leg' },
+                        { name: 'Wall Sit + Leg Extensions', sets: 3, reps: '10 each leg', description: 'Dynamic holds' },
+                        { name: 'Cossack Squats', sets: 3, reps: '6-10 each side', description: 'Lateral strength' },
+                        { name: 'Jump Squats', sets: 3, reps: '10-15', description: 'Explosive finisher' }
+                    ]
                 ]
             },
             'Glutes & Hamstrings': {
                 15: [
-                    { name: 'Glute Bridges', sets: 3, reps: '15-20', description: 'Hip extension focus' },
-                    { name: 'Romanian Deadlifts', sets: 3, reps: '10-12', description: 'Use dumbbells' },
-                    { name: 'Single-leg RDL', sets: 2, reps: '8 each leg', description: 'Balance challenge with light weight' },
-                    { name: 'Clamshells', sets: 2, reps: '15 each side', description: 'Glute med activation' }
+                    [
+                        { name: 'Glute Bridges', sets: 3, reps: '15-20', description: 'Hip extension focus' },
+                        { name: 'Romanian Deadlifts', sets: 3, reps: '10-12', description: 'Use dumbbells' },
+                        { name: 'Single-leg RDL', sets: 2, reps: '8 each leg', description: 'Balance challenge with light weight' },
+                        { name: 'Clamshells', sets: 2, reps: '15 each side', description: 'Glute med activation' }
+                    ],
+                    [
+                        { name: 'Hip Thrust', sets: 3, reps: '12-18', description: 'Elevated hip bridge' },
+                        { name: 'Good Mornings', sets: 3, reps: '10-12', description: 'Bodyweight hinge' },
+                        { name: 'Single-leg Deadlift', sets: 2, reps: '6-8 each leg', description: 'Balance + posterior chain' },
+                        { name: 'Fire Hydrants', sets: 2, reps: '12 each leg', description: 'Glute activation' }
+                    ]
                 ],
                 30: [
-                    { name: 'Hip Thrust', sets: 4, reps: '15-20', description: 'Use couch/bed, add weight on hips' },
-                    { name: 'Romanian Deadlifts', sets: 3, reps: '12-15', description: 'Use dumbbells, focus on form' },
-                    { name: 'Single-leg RDL', sets: 3, reps: '8-10 each leg', description: 'Light dumbbell for balance' },
-                    { name: 'Lateral Band Walks', sets: 3, reps: '12 each direction', description: 'Use resistance band' },
-                    { name: 'Good Mornings', sets: 3, reps: '12-15', description: 'Bodyweight or light weight' },
-                    { name: 'Reverse Hypers (on bed)', sets: 3, reps: '12-15', description: 'Glute/hamstring strength' }
+                    [
+                        { name: 'Hip Thrust', sets: 4, reps: '15-20', description: 'Use couch/bed, add weight on hips' },
+                        { name: 'Romanian Deadlifts', sets: 3, reps: '12-15', description: 'Use dumbbells, focus on form' },
+                        { name: 'Single-leg RDL', sets: 3, reps: '8-10 each leg', description: 'Light dumbbell for balance' },
+                        { name: 'Lateral Band Walks', sets: 3, reps: '12 each direction', description: 'Use resistance band' },
+                        { name: 'Good Mornings', sets: 3, reps: '12-15', description: 'Bodyweight or light weight' },
+                        { name: 'Reverse Hypers (on bed)', sets: 3, reps: '12-15', description: 'Glute/hamstring strength' }
+                    ],
+                    [
+                        { name: 'Single-leg Hip Thrust', sets: 4, reps: '10-15 each leg', description: 'Unilateral hip extension' },
+                        { name: 'Stiff Leg Deadlifts', sets: 3, reps: '12-15', description: 'Hamstring emphasis' },
+                        { name: 'Curtsy Lunge to RDL', sets: 3, reps: '8-10 each leg', description: 'Complex movement' },
+                        { name: 'Monster Walks', sets: 3, reps: '10 each direction', description: 'Lateral band resistance' },
+                        { name: 'Superman', sets: 3, reps: '12-15', description: 'Posterior chain' },
+                        { name: 'Glute Kickbacks', sets: 3, reps: '12-15 each leg', description: 'Isolation movement' }
+                    ]
                 ],
                 45: [
-                    { name: 'Hip Thrust', sets: 5, reps: '15-20', description: 'Progress weight, try single leg' },
-                    { name: 'Romanian Deadlifts', sets: 4, reps: '12-15', description: 'Use heavier dumbbells' },
-                    { name: 'Single-leg RDL', sets: 4, reps: '8-10 each leg', description: 'Progress to heavier weight' },
-                    { name: 'Good Morning Variations', sets: 3, reps: '12-15', description: 'Regular, single leg' },
-                    { name: 'Lateral Band Circuit', sets: 3, reps: '12 each', description: 'Walks, clamshells, kickbacks' },
-                    { name: 'Curtsy Lunges', sets: 3, reps: '10 each leg', description: 'Add dumbbells for resistance' },
-                    { name: 'Single-leg Hip Thrust', sets: 3, reps: '8-12 each leg', description: 'Advanced variation' },
-                    { name: 'Hamstring Curls (towel)', sets: 3, reps: '12-15', description: 'Lying on smooth floor' }
+                    [
+                        { name: 'Hip Thrust', sets: 5, reps: '15-20', description: 'Progress weight, try single leg' },
+                        { name: 'Romanian Deadlifts', sets: 4, reps: '12-15', description: 'Use heavier dumbbells' },
+                        { name: 'Single-leg RDL', sets: 4, reps: '8-10 each leg', description: 'Progress to heavier weight' },
+                        { name: 'Good Morning Variations', sets: 3, reps: '12-15', description: 'Regular, single leg' },
+                        { name: 'Lateral Band Circuit', sets: 3, reps: '12 each', description: 'Walks, clamshells, kickbacks' },
+                        { name: 'Curtsy Lunges', sets: 3, reps: '10 each leg', description: 'Add dumbbells for resistance' },
+                        { name: 'Single-leg Hip Thrust', sets: 3, reps: '8-12 each leg', description: 'Advanced variation' },
+                        { name: 'Hamstring Curls (towel)', sets: 3, reps: '12-15', description: 'Lying on smooth floor' }
+                    ],
+                    [
+                        { name: 'Deficit Hip Thrust', sets: 4, reps: '12-18', description: 'Increased range of motion' },
+                        { name: 'Single-leg Stiff Deadlift', sets: 4, reps: '8-12 each leg', description: 'Advanced hamstring work' },
+                        { name: 'B-Stance RDL', sets: 4, reps: '10-12 each leg', description: 'Kickstand variation' },
+                        { name: 'Banded Good Mornings', sets: 3, reps: '12-15', description: 'Added resistance' },
+                        { name: 'Glute Bridge + Band Pulls', sets: 3, reps: '12-15', description: 'Combo movement' },
+                        { name: 'Walking Lunges', sets: 3, reps: '12-16 total', description: 'Dynamic posterior chain' },
+                        { name: 'Nordic Curl Negatives', sets: 3, reps: '3-6', description: 'Advanced hamstring' },
+                        { name: 'Prone Leg Curls', sets: 3, reps: '12-15', description: 'Isolation finish' }
+                    ]
                 ]
             },
             'Glutes': {
                 15: [
-                    { name: 'Glute Bridges', sets: 3, reps: '20-25', description: 'Maximum glute squeeze' },
-                    { name: 'Clamshells', sets: 3, reps: '15 each side', description: 'Glute med activation' },
-                    { name: 'Fire Hydrants', sets: 2, reps: '12 each leg', description: 'Hip abduction' },
-                    { name: 'Glute Squeeze Pulses', sets: 2, reps: '20', description: 'Isometric holds' }
+                    [
+                        { name: 'Glute Bridges', sets: 3, reps: '20-25', description: 'Maximum glute squeeze' },
+                        { name: 'Clamshells', sets: 3, reps: '15 each side', description: 'Glute med activation' },
+                        { name: 'Fire Hydrants', sets: 2, reps: '12 each leg', description: 'Hip abduction' },
+                        { name: 'Glute Squeeze Pulses', sets: 2, reps: '20', description: 'Isometric holds' }
+                    ],
+                    [
+                        { name: 'Hip Thrust Pulses', sets: 3, reps: '15-20', description: 'Quick contractions' },
+                        { name: 'Side-lying Leg Lifts', sets: 3, reps: '15 each side', description: 'Glute med isolation' },
+                        { name: 'Donkey Kicks', sets: 2, reps: '12 each leg', description: 'Glute isolation' },
+                        { name: 'Bridge Hold', sets: 2, reps: '30-45 sec', description: 'Isometric strength' }
+                    ]
                 ],
                 30: [
-                    { name: 'Hip Thrust', sets: 4, reps: '15-20', description: 'Add weight, try single leg variations' },
-                    { name: 'Sumo Squats', sets: 3, reps: '12-15', description: 'Wide stance, add dumbbell' },
-                    { name: 'Lateral Band Walks', sets: 3, reps: '15 each direction', description: 'Constant tension' },
-                    { name: 'Curtsy Lunges', sets: 3, reps: '12 each leg', description: 'Add dumbbells for resistance' },
-                    { name: 'Clamshells', sets: 3, reps: '20 each side', description: 'Side-lying glute med' },
-                    { name: 'Donkey Kicks', sets: 3, reps: '15 each leg', description: 'Glute isolation' }
+                    [
+                        { name: 'Hip Thrust', sets: 4, reps: '15-20', description: 'Add weight, try single leg variations' },
+                        { name: 'Sumo Squats', sets: 3, reps: '12-15', description: 'Wide stance, add dumbbell' },
+                        { name: 'Lateral Band Walks', sets: 3, reps: '15 each direction', description: 'Constant tension' },
+                        { name: 'Curtsy Lunges', sets: 3, reps: '12 each leg', description: 'Add dumbbells for resistance' },
+                        { name: 'Clamshells', sets: 3, reps: '20 each side', description: 'Side-lying glute med' },
+                        { name: 'Donkey Kicks', sets: 3, reps: '15 each leg', description: 'Glute isolation' }
+                    ],
+                    [
+                        { name: 'Single-leg Hip Thrust', sets: 4, reps: '10-15 each leg', description: 'Unilateral focus' },
+                        { name: 'Goblet Sumo Squats', sets: 3, reps: '12-15', description: 'Deep glute activation' },
+                        { name: 'Monster Walks', sets: 3, reps: '12 each direction', description: 'Multi-directional resistance' },
+                        { name: 'Bulgarian Split Squats', sets: 3, reps: '10-12 each leg', description: 'Rear foot elevated' },
+                        { name: 'Wall Sit + Abduction', sets: 3, reps: '15-20', description: 'Squeeze ball/pillow' },
+                        { name: 'Glute Kickbacks', sets: 3, reps: '15 each leg', description: 'Cable or band resistance' }
+                    ]
                 ],
                 45: [
-                    { name: 'Hip Thrust', sets: 5, reps: '15-20', description: 'Progress weight, single leg variations' },
-                    { name: 'Sumo Squats', sets: 4, reps: '12-15', description: 'Heavy dumbbell, pulse variations' },
-                    { name: 'Single Hip Thrust', sets: 4, reps: '12-15 each leg', description: 'Use dumbbells for added resistance' },
-                    { name: 'Lateral Movement Circuit', sets: 4, reps: '12-15', description: 'Band walks, lateral lunges' },
-                    { name: 'Curtsy Lunge to Lateral Lunge', sets: 3, reps: '10 each leg', description: 'Multi-planar with dumbbells' },
-                    { name: 'Clamshell Variations', sets: 3, reps: '15 each', description: 'Regular, top leg lifts' },
-                    { name: 'Cable Kickbacks', sets: 3, reps: '12-15 each leg', description: 'Use resistance band' },
-                    { name: 'Glute Activation Finisher', sets: 3, reps: '20-30', description: 'Fire hydrants, donkey kicks' }
+                    [
+                        { name: 'Hip Thrust', sets: 5, reps: '15-20', description: 'Progress weight, single leg variations' },
+                        { name: 'Sumo Squats', sets: 4, reps: '12-15', description: 'Heavy dumbbell, pulse variations' },
+                        { name: 'Single Hip Thrust', sets: 4, reps: '12-15 each leg', description: 'Use dumbbells for added resistance' },
+                        { name: 'Lateral Movement Circuit', sets: 4, reps: '12-15', description: 'Band walks, lateral lunges' },
+                        { name: 'Curtsy Lunge to Lateral Lunge', sets: 3, reps: '10 each leg', description: 'Multi-planar with dumbbells' },
+                        { name: 'Clamshell Variations', sets: 3, reps: '15 each', description: 'Regular, top leg lifts' },
+                        { name: 'Cable Kickbacks', sets: 3, reps: '12-15 each leg', description: 'Use resistance band' },
+                        { name: 'Glute Activation Finisher', sets: 3, reps: '20-30', description: 'Fire hydrants, donkey kicks' }
+                    ],
+                    [
+                        { name: 'Deficit Hip Thrust', sets: 5, reps: '12-18', description: 'Feet elevated for range' },
+                        { name: 'Pause Sumo Squats', sets: 4, reps: '10-12', description: '2-sec pause at bottom' },
+                        { name: 'Single-leg Glute Bridge', sets: 4, reps: '12-15 each leg', description: 'Extended range' },
+                        { name: 'Lateral Lunge + Abduction', sets: 4, reps: '10-12 each leg', description: 'Combo movement' },
+                        { name: 'Reverse Lunge + Knee Drive', sets: 3, reps: '10 each leg', description: 'Dynamic glute activation' },
+                        { name: 'Banded Clamshell Series', sets: 3, reps: '12-15 each', description: 'Multiple angles' },
+                        { name: 'Single-leg Deadlift + Kickback', sets: 3, reps: '8-10 each leg', description: 'Complex movement' },
+                        { name: 'Glute Bridge + Band Pull-aparts', sets: 3, reps: '12-15', description: 'Upper/lower combo' }
+                    ]
                 ]
             }
         };
@@ -648,9 +775,20 @@
             return 'Start with bodyweight, add weight as needed';
         }
 
+        // NEW: Generate new workout variation
+        function generateNewWorkout() {
+            const category = document.getElementById('workout-category').value;
+            const variations = workoutPlans[category][selectedDuration];
+            
+            // Cycle through different workout variations
+            currentWorkoutVariation = (currentWorkoutVariation + 1) % variations.length;
+            generateWorkout();
+        }
+
         function generateWorkout() {
             const category = document.getElementById('workout-category').value;
-            const exercises = workoutPlans[category][selectedDuration];
+            const variations = workoutPlans[category][selectedDuration];
+            const exercises = variations[currentWorkoutVariation % variations.length];
             const cardio = cardioOptions[selectedCardio];
             
             const workoutDisplay = document.getElementById('workout-display');
@@ -688,6 +826,7 @@
             workoutDisplay.innerHTML = `
                 <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
                     🎯 ${category} - ${selectedDuration + selectedCardio} Minute Complete Workout
+                    <span class="text-sm font-normal text-gray-500">(Variation ${(currentWorkoutVariation % variations.length) + 1})</span>
                 </h3>
                 
                 <!-- Strength Portion -->
