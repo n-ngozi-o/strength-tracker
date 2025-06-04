@@ -114,6 +114,11 @@
                             Add PR
                         </button>
                     </div>
+                    <div class="mt-3">
+                        <button onclick="syncToGoogleSheets()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors ios-button">
+                            Manual Sync
+                        </button>
+                    </div>
                 </div>
 
                 <!-- PR Tables -->
@@ -389,39 +394,40 @@
             }
         }
 
+        // UPDATED SYNC FUNCTION - NO MORE CORS ISSUES!
         async function syncToGoogleSheets() {
-    if (!webAppUrl) {
-        console.log('No Web App URL configured');
-        return;
-    }
-    
-    console.log('Starting sync to Google Sheets...');
-    updateSyncStatus('syncing');
-    
-    try {
-        // Use GET request with data as parameter to avoid CORS
-        const dataStr = encodeURIComponent(JSON.stringify(personalRecords));
-        const url = `${webAppUrl}?data=${dataStr}`;
-        
-        const response = await fetch(url, {
-            method: 'GET'
-        });
-        
-        console.log('Sync response:', response.status, response.statusText);
-        
-        if (response.ok) {
-            const responseText = await response.text();
-            console.log('Sync successful:', responseText);
-            updateSyncStatus('synced');
-        } else {
-            console.error('Sync failed with status:', response.status);
-            updateSyncStatus('error');
+            if (!webAppUrl) {
+                console.log('No Web App URL configured');
+                return;
+            }
+            
+            console.log('Starting sync to Google Sheets...');
+            updateSyncStatus('syncing');
+            
+            try {
+                // Use GET request with data as parameter to avoid CORS
+                const dataStr = encodeURIComponent(JSON.stringify(personalRecords));
+                const url = `${webAppUrl}?data=${dataStr}`;
+                
+                const response = await fetch(url, {
+                    method: 'GET'
+                });
+                
+                console.log('Sync response:', response.status, response.statusText);
+                
+                if (response.ok) {
+                    const responseText = await response.text();
+                    console.log('Sync successful:', responseText);
+                    updateSyncStatus('synced');
+                } else {
+                    console.error('Sync failed with status:', response.status);
+                    updateSyncStatus('error');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                updateSyncStatus('error');
+            }
         }
-    } catch (error) {
-        console.error('Sync error:', error);
-        updateSyncStatus('error');
-    }
-}
 
         async function loadFromGoogleSheets() {
             if (!webAppUrl) return;
