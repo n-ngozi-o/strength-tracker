@@ -390,39 +390,38 @@
         }
 
         async function syncToGoogleSheets() {
-            if (!webAppUrl) {
-                console.log('No Web App URL configured');
-                return;
-            }
-            
-            console.log('Starting sync to Google Sheets...');
-            updateSyncStatus('syncing');
-            
-            try {
-                const response = await fetch(webAppUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    mode: 'cors',
-                    body: JSON.stringify(personalRecords)
-                });
-                
-                console.log('Sync response:', response.status, response.statusText);
-                
-                if (response.ok) {
-                    const responseText = await response.text();
-                    console.log('Sync successful:', responseText);
-                    updateSyncStatus('synced');
-                } else {
-                    console.error('Sync failed with status:', response.status);
-                    updateSyncStatus('error');
-                }
-            } catch (error) {
-                console.error('Sync error:', error);
-                updateSyncStatus('error');
-            }
+    if (!webAppUrl) {
+        console.log('No Web App URL configured');
+        return;
+    }
+    
+    console.log('Starting sync to Google Sheets...');
+    updateSyncStatus('syncing');
+    
+    try {
+        // Use GET request with data as parameter to avoid CORS
+        const dataStr = encodeURIComponent(JSON.stringify(personalRecords));
+        const url = `${webAppUrl}?data=${dataStr}`;
+        
+        const response = await fetch(url, {
+            method: 'GET'
+        });
+        
+        console.log('Sync response:', response.status, response.statusText);
+        
+        if (response.ok) {
+            const responseText = await response.text();
+            console.log('Sync successful:', responseText);
+            updateSyncStatus('synced');
+        } else {
+            console.error('Sync failed with status:', response.status);
+            updateSyncStatus('error');
         }
+    } catch (error) {
+        console.error('Sync error:', error);
+        updateSyncStatus('error');
+    }
+}
 
         async function loadFromGoogleSheets() {
             if (!webAppUrl) return;
